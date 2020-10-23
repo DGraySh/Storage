@@ -1,45 +1,80 @@
-package ru.gb.cloud_storage.storage_common;
-
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.ByteBufAllocator;
-import io.netty.channel.*;
-
-import java.io.BufferedOutputStream;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-
-public class FileReceiver {
-    private BufferedOutputStream out;
-
-    public void receiveFile(Path path, Channel channel, ChannelFutureListener finishListener) throws IOException {
-        FileRegion region = new DefaultFileRegion(path.toFile(), 0, Files.size(path));
-
-        ByteBuf buf = null;
-        buf = ByteBufAllocator.DEFAULT.directBuffer(1);
-        buf.writeByte((byte) 20);
-        channel.write(buf);
-
-        byte[] filenameBytes = path.getFileName().toString().getBytes(StandardCharsets.UTF_8);
-        buf = ByteBufAllocator.DEFAULT.directBuffer(4);
-        buf.writeInt(filenameBytes.length);
-        channel.write(buf);
-
-        buf = ByteBufAllocator.DEFAULT.directBuffer(filenameBytes.length);
-        buf.writeBytes(filenameBytes);
-        channel.write(buf);
-
-        while (buf.readableBytes() > 0) {
-            out.write(buf.readByte());
-            System.out.println("File received");
-            out.close();
-            //break;
-            /*Написать здесь отправку обратно md5-суммы файла для проверки на повреждения *///TODO
-        }
-        ChannelFuture transferOperationFuture = channel.writeAndFlush(region);
-        if (finishListener != null) {
-            transferOperationFuture.addListener(finishListener);
-        }
-    }
-}
+//package ru.gb.cloud_storage.storage_common;
+//
+//import io.netty.buffer.ByteBuf;
+//import io.netty.buffer.ByteBufAllocator;
+//import io.netty.channel.*;
+//
+//import java.io.BufferedOutputStream;
+//import java.io.FileOutputStream;
+//import java.io.IOException;
+//import java.nio.charset.StandardCharsets;
+//import java.nio.file.Files;
+//import java.nio.file.Path;
+//
+//public class FileReceiver {
+//    private BufferedOutputStream out;
+//
+//        public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+//            ByteBuf buf = ((ByteBuf) msg);
+//            while (buf.readableBytes() > 0) {
+//                if (currentState == State.IDLE) {
+//                    byte readed = buf.readByte();
+//                    if (readed == (byte) 20) {
+//                        currentState = State.NAME_LENGTH;
+//                        receivedFileLength = 0L;
+//                        System.out.println("STATE: Start file receiving");
+//                    } else {
+//                        System.out.println("ERROR: Invalid first byte - " + readed);
+//                    }
+//                }
+//
+//
+//                if (currentState == State.NAME_LENGTH) {
+//                    if (buf.readableBytes() >= 4) {
+//                        System.out.println("STATE: Get filename length");
+//                        nextLength = buf.readInt();
+//                        currentState = State.NAME;
+//                    }
+//                }
+//
+//                if (currentState == State.NAME) {
+//                    if (buf.readableBytes() >= nextLength) {
+//                        byte[] fileName = new byte[nextLength];
+//                        buf.readBytes(fileName);
+//                        System.out.println("STATE: Filename received - _" + new String(fileName, "UTF-8"));
+//                        out = new BufferedOutputStream(new FileOutputStream("_" + new String(fileName)));
+//                        currentState = State.FILE_LENGTH;
+//                    }
+//                }
+//
+//                if (currentState == State.FILE_LENGTH) {
+//                    if (buf.readableBytes() >= 8) {
+//                        fileLength = buf.readLong();
+//                        System.out.println("STATE: File length received - " + fileLength);
+//                        currentState = State.DATA;
+//                    }
+//                }
+//
+//                if (currentState == State.DATA) {
+//                    while (buf.readableBytes() > 0) {
+//                        out.write(buf.readByte());
+//                        receivedFileLength++;
+//                        if (fileLength == receivedFileLength) {
+//                            currentState = State.IDLE;
+//                            System.out.println("File received");
+//                            out.close();
+//                            break;
+//                        }
+//                    }
+//                }
+//            }
+//            if (buf.readableBytes() == 0) {
+//                buf.release();
+//            }
+//        }
+//        ChannelFuture transferOperationFuture = channel.writeAndFlush(region);
+//        if (finishListener != null) {
+//            transferOperationFuture.addListener(finishListener);
+//        }
+//    }
+//}
