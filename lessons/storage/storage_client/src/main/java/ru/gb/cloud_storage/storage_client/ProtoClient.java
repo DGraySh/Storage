@@ -58,13 +58,17 @@ public class ProtoClient {
 //        });
     }
 
+    private static Channel initChannel() throws InterruptedException {
+        CountDownLatch networkStarter = new CountDownLatch(1);
+        new Thread(() -> Network.getInstance().start(networkStarter)).start();
+        networkStarter.await();
+        return Network.getInstance().getCurrentChannel();
+    }
+
     private static void sendFile(String fileName, ChannelFutureListener finishListener) throws IOException, InterruptedException {
-        Path path = Paths.get(fileName);
-
-        Channel channel = initChannel();
-//        FileRegion region = new DefaultFileRegion(path.toFile(), 0, Files.size(path));
-
         ByteBuf buf = null;
+        Path path = Paths.get(fileName);
+        Channel channel = initChannel();
         ByteBufSender.sendFileOpt(channel, buf, (byte)20);
         ByteBufSender.sendFileName(channel, buf, path);
         ByteBufSender.sendFile(channel, buf, path, finishListener);
@@ -76,22 +80,36 @@ public class ProtoClient {
 //        }
     }
 
-    private static Channel initChannel() throws InterruptedException {
-        CountDownLatch networkStarter = new CountDownLatch(1);
-        new Thread(() -> Network.getInstance().start(networkStarter)).start();
-        networkStarter.await();
-
-        return Network.getInstance().getCurrentChannel();
+    private static void requestFile(String fileName) throws InterruptedException {
+        ByteBuf buf = null;
+        Channel channel = initChannel();
+        ByteBufSender.sendFileOpt(channel, buf, (byte) 40);
+        ByteBufSender.sendFileName(channel, buf, Paths.get(fileName));
     }
 
-    private static void requestFile(String fileName) throws InterruptedException {
-
-        Path path = Paths.get(fileName);
+    private void deleteFile(String fileName) throws InterruptedException {
         ByteBuf buf = null;
-
         Channel channel = initChannel();
-        ByteBufSender.sendFileOpt(channel, buf, (byte)40);
-        ByteBufSender.sendFileName(channel, buf, path);
+        ByteBufSender.sendFileOpt(channel, buf, (byte) 31);
+        ByteBufSender.sendFileName(channel, buf, Paths.get(fileName));
+    }
+
+    private void renameFile(String fileName, String newFileName) throws InterruptedException {
+        ByteBuf buf = null;
+        Channel channel = initChannel();
+        ByteBufSender.sendFileOpt(channel, buf, (byte) 32);
+        ByteBufSender.sendFileName(channel, buf, Paths.get(fileName));
+        ByteBufSender.sendFileName(channel, buf, Paths.get(newFileName));
+    }
+
+    private void moveFile(String fileName, String newDirName) throws InterruptedException {
+        ByteBuf buf = null;
+        Channel channel = initChannel();
+        ByteBufSender.sendFileOpt(channel, buf, (byte) 33);
+        ByteBufSender.sendFileName(channel, buf, Paths.get(fileName));
+        ByteBufSender.sendFileName(channel, buf, Paths.get(newDirName));
+    }
+
 
 //        State currentState = State.FILE_LENGTH;
 //        long fileLength = ByteBufReceiver.receiveFileLength(buf, currentState);
@@ -114,5 +132,5 @@ public class ProtoClient {
 //                /*Написать здесь отправку обратно md5-суммы файла для проверки на повреждения *///TODO
 //            }
 //        }
-    }
+
 }

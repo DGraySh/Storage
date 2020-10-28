@@ -15,17 +15,6 @@ public class ByteBufReceiver {
 //    ChannelHandlerContext ctx;
 
 
-    public static long receiveFileLength(ByteBuf buf, State currentState) {
-        long length = 0L;
-        if ((currentState == State.FILE_LENGTH) && (buf.readableBytes() >= 8)) {
-            length = buf.readLong();
-            System.out.println("STATE: File length received - " + length);
-        }
-        if (length != 0)
-            return length;
-        else
-            throw new NullPointerException("File name is missing");
-    }
 
     public static String receiveFileName(ByteBuf buf, State currentState) {
         byte[] fileName = null;
@@ -46,6 +35,18 @@ public class ByteBufReceiver {
         if (fileName != null) {
             return new String(fileName);
         } else
+            throw new NullPointerException("File name is missing");
+    }
+
+    public static long receiveFileLength(ByteBuf buf, State currentState) {
+        long length = 0L;
+        if ((currentState == State.FILE_LENGTH) && (buf.readableBytes() >= 8)) {
+            length = buf.readLong();
+            System.out.println("STATE: File length received - " + length);
+        }
+        if (length != 0)
+            return length;
+        else
             throw new NullPointerException("File name is missing");
     }
 
