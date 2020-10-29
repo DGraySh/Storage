@@ -4,6 +4,8 @@ import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufAllocator;
 import io.netty.channel.*;
 
+import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -17,14 +19,23 @@ public class ByteBufSender {
         channel.writeAndFlush(buf);
     }
 
-    public static void sendFileName( Channel channel, ByteBuf buf, Path path) {
-        byte[] filenameBytes = path.getFileName().toString().getBytes(StandardCharsets.UTF_8);
+    public static void sendFileName( Channel channel, ByteBuf buf, Path path) throws IOException {
+//        byte[] filenameBytes = path.getFileName().toString().getBytes(StandardCharsets.UTF_8);
+
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        DataOutputStream out = new DataOutputStream(baos);
+
+        out.writeUTF(path.toString());
+
+        byte[] pathNameBytes = baos.toByteArray();
+        buf.writeBytes(pathNameBytes);
+
         buf = ByteBufAllocator.DEFAULT.directBuffer(4);
-        buf.writeInt(filenameBytes.length);
+        buf.writeInt(pathNameBytes.length);
         channel.writeAndFlush(buf);
 
-        buf = ByteBufAllocator.DEFAULT.directBuffer(filenameBytes.length);
-        buf.writeBytes(filenameBytes);
+        buf = ByteBufAllocator.DEFAULT.directBuffer(pathNameBytes.length);
+        buf.writeBytes(pathNameBytes);
         channel.writeAndFlush(buf);
     }
 

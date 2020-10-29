@@ -4,26 +4,23 @@ import io.netty.buffer.ByteBuf;
 import io.netty.channel.*;
 import ru.gb.cloud_storage.storage_common.ByteBufSender;
 
+import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.concurrent.CountDownLatch;
 
 public class ProtoClient {
     public static void main(String[] args) throws Exception {
 
-        sendFile("demo.txt", future -> {
-            if (!future.isSuccess()) {
-                future.cause().printStackTrace();
-            }
-            if (future.isSuccess()) {
-                System.out.println("Файл успешно передан");
-            }
-        });
+//        sendFile("demo.txt", ProtoClient::operationComplete);
 
-        requestFile("1demo.txt");
-//        Network.getInstance().stop();
+        requestFile(Path.of(".","1","1.txt"));
+        Thread.sleep(1000);
+        //requestFileTree();
+
+//        deleteFile(Paths.get(".","1" ,"1.txt"));
 
 
 
@@ -80,34 +77,50 @@ public class ProtoClient {
 //        }
     }
 
-    private static void requestFile(String fileName) throws InterruptedException {
+    private static void requestFile(Path path) throws InterruptedException {
         ByteBuf buf = null;
         Channel channel = initChannel();
         ByteBufSender.sendFileOpt(channel, buf, (byte) 40);
-        ByteBufSender.sendFileName(channel, buf, Paths.get(fileName));
+        ByteBufSender.sendFileName(channel, buf, path);
     }
 
-    private void deleteFile(String fileName) throws InterruptedException {
+    private static void deleteFile(Path path) throws InterruptedException {
         ByteBuf buf = null;
         Channel channel = initChannel();
         ByteBufSender.sendFileOpt(channel, buf, (byte) 31);
-        ByteBufSender.sendFileName(channel, buf, Paths.get(fileName));
+        ByteBufSender.sendFileName(channel, buf, path);
     }
 
-    private void renameFile(String fileName, String newFileName) throws InterruptedException {
+    private static void renameFile(Path oldPath, Path newPath) throws InterruptedException {
         ByteBuf buf = null;
         Channel channel = initChannel();
         ByteBufSender.sendFileOpt(channel, buf, (byte) 32);
-        ByteBufSender.sendFileName(channel, buf, Paths.get(fileName));
-        ByteBufSender.sendFileName(channel, buf, Paths.get(newFileName));
+        ByteBufSender.sendFileName(channel, buf, oldPath);
+        ByteBufSender.sendFileName(channel, buf, newPath);
     }
 
-    private void moveFile(String fileName, String newDirName) throws InterruptedException {
+    private static void moveFile(String fileName, String newDirName) throws InterruptedException {
         ByteBuf buf = null;
         Channel channel = initChannel();
         ByteBufSender.sendFileOpt(channel, buf, (byte) 33);
         ByteBufSender.sendFileName(channel, buf, Paths.get(fileName));
         ByteBufSender.sendFileName(channel, buf, Paths.get(newDirName));
+    }
+
+    private static void requestFileTree() throws InterruptedException {
+        ByteBuf buf = null;
+        Channel channel = initChannel();
+        ByteBufSender.sendFileOpt(channel, buf, (byte) 35);
+
+    }
+
+    private static void operationComplete(ChannelFuture future) {
+        if (!future.isSuccess()) {
+            future.cause().printStackTrace();
+        }
+        if (future.isSuccess()) {
+            System.out.println("Файл успешно передан");
+        }
     }
 
 

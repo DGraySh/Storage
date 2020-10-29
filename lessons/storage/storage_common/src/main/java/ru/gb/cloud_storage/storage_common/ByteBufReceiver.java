@@ -5,6 +5,9 @@ import io.netty.channel.*;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
 
 public class ByteBufReceiver {
 
@@ -28,9 +31,22 @@ public class ByteBufReceiver {
         if ((currentState == State.NAME) && (buf.readableBytes() >= nameLength)) {
             fileName = new byte[nameLength];
             buf.readBytes(fileName);
+
+
+            ByteArrayInputStream bais = new ByteArrayInputStream(fileName);
+            DataInputStream in = new DataInputStream(bais);
+
+            while (true) {
+                try {
+                    if (!(in.available() > 0)) break;
+                    Path path = Path.of(in.readUTF());
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+
+
             System.out.println("STATE: Filename received - _" + new String(fileName, StandardCharsets.UTF_8));
-            //out = new BufferedOutputStream(new FileOutputStream("_" + new String(fileName)));
-            //currentState = State.FILE_LENGTH;
         }
         if (fileName != null) {
             return new String(fileName);
@@ -47,7 +63,7 @@ public class ByteBufReceiver {
         if (length != 0)
             return length;
         else
-            throw new NullPointerException("File name is missing");
+            throw new NullPointerException("File length is missing");
     }
 
     public static void receiveFile(ByteBuf buf, OutputStream out, long fileLength) throws IOException {

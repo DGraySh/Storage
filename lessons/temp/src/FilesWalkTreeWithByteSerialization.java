@@ -1,22 +1,16 @@
-import java.io.ByteArrayOutputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
+import java.io.*;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.List;
-import java.util.stream.Collectors;
+import java.util.*;
 
-public class NewClass {
 
-    public static void main(String[] args) {
+public class FilesWalkTreeWithByteSerialization {
+
+    public static void main(String[] args) throws IOException {
         ArrayList<Path> list = new ArrayList<>();
-
         try {
-            Files.walkFileTree(Paths.get("."), new HashSet<FileVisitOption>(Arrays.asList(FileVisitOption.FOLLOW_LINKS)),
-                    Integer.MAX_VALUE, new SimpleFileVisitor<Path>() {
+            Files.walkFileTree(Paths.get("."), new HashSet<>(Collections.singletonList(FileVisitOption.FOLLOW_LINKS)),
+                    2, new SimpleFileVisitor<>() {
                         @Override
                         public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
 //                            System.out.printf("Visiting file %s\n", file);
@@ -27,7 +21,6 @@ public class NewClass {
                         @Override
                         public FileVisitResult visitFileFailed(Path file, IOException e) throws IOException {
 //                            System.err.printf("Visiting failed for %s\n", file);
-
                             return FileVisitResult.SKIP_SUBTREE;
                         }
 
@@ -41,13 +34,22 @@ public class NewClass {
             // TODO Auto-generated catch block
             e.printStackTrace();
         }
-        System.out.println(list);
+        //System.out.println(list);
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         DataOutputStream out = new DataOutputStream(baos);
-        for (Path element : list) {
-            out.writeUTF(element);
+        for (Path path : list) {
+            out.writeUTF(path.toString());
         }
         byte[] bytes = baos.toByteArray();
+        //System.out.println(bytes);
+        ByteArrayInputStream bais = new ByteArrayInputStream(bytes);
+        DataInputStream in = new DataInputStream(bais);
+        ArrayList <Path> paths = new ArrayList<>();
+        while (in.available() > 0) {
+            String element = in.readUTF();
+            paths.add(Paths.get(element));
+        }
+        System.out.println(paths);
     }
 
 }
