@@ -14,15 +14,14 @@ import java.util.concurrent.CountDownLatch;
 
 public class Network {
     private static Network ourInstance = new Network();
-
-    public static Network getInstance() {
-        return ourInstance;
-    }
+    private Channel currentChannel;
 
     private Network() {
     }
 
-    private Channel currentChannel;
+    public static Network getInstance() {
+        return ourInstance;
+    }
 
     public Channel getCurrentChannel() {
         return currentChannel;

@@ -17,12 +17,12 @@ import java.util.List;
 
 public class ProtoHandler extends ChannelInboundHandlerAdapter {
 
-    private State currentState = State.IDLE;
-    private Path userDir = Path.of("./user_directory");
     private static final Logger logger = LogManager.getLogger(ProtoHandler.class);
+    private final Path userDIr = Path.of("./user_directory");
+    private State currentState = State.IDLE;
 
 
-    public ProtoHandler() throws IOException {
+    public ProtoHandler() {
     }
 
     @Override
@@ -32,20 +32,30 @@ public class ProtoHandler extends ChannelInboundHandlerAdapter {
             if (currentState == State.IDLE) {
                 byte readBytes = buf.readByte();
                 switch (readBytes) {
-                    case (byte) 45: receiveFile(buf);
+                    case (byte) 45:
+                        receiveFile(buf);
                         break;
-                    case (byte) 31: logger.info("File deleted");
+                    case (byte) 31:
+                        logger.info("File deleted");
                         break;
-                    case (byte) 32: logger.info("File renamed");
+                    case (byte) 32:
+                        logger.info("File renamed");
                         break;
-                    case (byte) 33: logger.info("File moved");
+                    case (byte) 33:
+                        logger.info("File moved");
                         break;
-                    case (byte) 35: receiveFileTree(buf);
+                    case (byte) 35:
+                        receiveFileTree(buf);
                         break;
-                    case (byte) 0: receiveFileNotFound(buf);
+                    case (byte) 10:
+                        fileAlreadyExist(buf);
                         break;
-                    default: logger.error("ERROR: Invalid first byte - {}", readBytes);
-                    break;
+                    case (byte) 0:
+                        receiveFileNotFound(buf);
+                        break;
+                    default:
+                        logger.error("ERROR: Invalid first byte - {}", readBytes);
+                        break;
                 }
             }
         }
@@ -54,21 +64,22 @@ public class ProtoHandler extends ChannelInboundHandlerAdapter {
         }
     }
 
-    private void receiveFile(ByteBuf buf) {
+    private void receiveFile(ByteBuf buf) throws IOException {
         Path path = Path.of(ByteBufReceiver.receiveFileName(buf, State.NAME_LENGTH));
         long fileLength = ByteBufReceiver.receiveFileLength(buf, State.FILE_LENGTH);
-        String fileName = userDir.resolve(path.getFileName()).toString();
+        Files.createDirectories(userDIr);
+        String fileName = userDIr.resolve(path.getFileName()).toString();
         if (Files.notExists(Path.of(fileName))) {
             try (BufferedOutputStream out = new BufferedOutputStream(new FileOutputStream(fileName))) {
-                logger.info("Start file receiving");
+                logger.info("Start receiving file {}", path.getFileName());
                 ByteBufReceiver.receiveFile(buf, out, fileLength, logger);
             } catch (IOException e) {
                 e.printStackTrace();
             }
-        }
-        else logger.warn("File already exists");//TODO request for overwrite file in GUI
+        } else
+            logger.warn("File {} already exist, overwrite it?", path.getFileName());
         currentState = State.ERROR;
-//        buf.release();
+        //TODO request for overwrite file in GUI
     }
 
     private List<Path> receiveFileTree(ByteBuf buf) throws IOException {
@@ -94,6 +105,11 @@ public class ProtoHandler extends ChannelInboundHandlerAdapter {
     private void receiveFileNotFound(ByteBuf buf) {
         String fileName = ByteBufReceiver.receiveFileName(buf, State.NAME_LENGTH);
         logger.warn("file {} not found", fileName);
+    }
+
+    private void fileAlreadyExist(ByteBuf buf) {
+        String fileName = ByteBufReceiver.receiveFileName(buf, State.NAME_LENGTH);
+        logger.warn("file {} already exist", fileName);
     }
 
     @Override

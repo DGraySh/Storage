@@ -18,20 +18,22 @@ public class ProtoClient {
 
     public static void main(String[] args) throws Exception {
 
-        sendFile("demo.txt", ProtoClient::operationComplete);
-        requestFile(Path.of("./1/3.txt"));
-        Thread.sleep(1000);
+        Channel channel = initChannel();
+
+        sendFile("./1/2/2.txt", channel, ProtoClient::operationComplete);
+//        requestFile(channel, Path.of("./1/3.txt"));
+//        Thread.sleep(2000);
+//        deleteFile(channel, Path.of("./1/1.txt"));
+//        Thread.sleep(2000);
+//        moveFile(channel, Path.of("./1/3.txt"), Path.of("./1/5/31.txt"));
+//        Thread.sleep(4000);
+//        renameFile(channel, Path.of("./1/7.txt"), Path.of("./1/71.txt"));
+//        Thread.sleep(2000);
+//        requestFileTree(channel);
+//        Thread.sleep(2000);
+
         Network.getInstance().stop();
-        deleteFile(Path.of("./1/1.txt"));
-        Thread.sleep(1000);
-        Network.getInstance().stop();
-        moveFile(Path.of("./1/3.txt"), Path.of("./1/5/31.txt"));
-        Thread.sleep(1000);
-        Network.getInstance().stop();
-        renameFile(Path.of("./1/7.txt"), Path.of("./1/71.txt"));
-        Thread.sleep(1000);
-        Network.getInstance().stop();
-        requestFileTree();
+
 
     }
 
@@ -42,43 +44,37 @@ public class ProtoClient {
         return Network.getInstance().getCurrentChannel();
     }
 
-    private static void sendFile(String fileName, ChannelFutureListener finishListener) throws IOException, InterruptedException {
+    private static void sendFile(String fileName, Channel channel, ChannelFutureListener finishListener) throws IOException {
         Path path = Paths.get(fileName);
         if (Files.exists(path)) {
-            Channel channel = initChannel();
             ByteBufSender.sendFileOpt(channel, (byte) 20);
             ByteBufSender.sendFileName(channel, path);
             ByteBufSender.sendFile(channel, path, finishListener);
-        }
-        else
-            logger.error("File doesn't exist");
+        } else
+            logger.error("File {} doesn't exist", path.getFileName());
     }
 
-    private static void requestFile(Path path) throws InterruptedException {
-        Channel channel = initChannel();
+    private static void requestFile(Channel channel, Path path) {
         ByteBufSender.sendFileOpt(channel, (byte) 40);
         ByteBufSender.sendFileName(channel, path);
     }
 
-    private static void deleteFile(Path path) throws InterruptedException {
-        Channel channel = initChannel();
+    private static void deleteFile(Channel channel, Path path) {
         ByteBufSender.sendFileOpt(channel, (byte) 31);
         ByteBufSender.sendFileName(channel, path);
     }
 
-    private static void moveFile(Path oldPath, Path newPath) throws InterruptedException {
-        Channel channel = initChannel();
+    private static void moveFile(Channel channel, Path oldPath, Path newPath) {
         ByteBufSender.sendFileOpt(channel, (byte) 33);
         ByteBufSender.sendFileName(channel, oldPath);
         ByteBufSender.sendFileName(channel, newPath);
     }
 
-    private static void renameFile(Path oldPath, Path newPath) throws InterruptedException {
-        moveFile(oldPath, newPath);
+    private static void renameFile(Channel channel, Path oldPath, Path newPath) {
+        moveFile(channel, oldPath, newPath);
     }
 
-    private static void requestFileTree() throws InterruptedException {
-        Channel channel = initChannel();
+    private static void requestFileTree(Channel channel) {
         ByteBufSender.sendFileOpt(channel, (byte) 35);
     }
 

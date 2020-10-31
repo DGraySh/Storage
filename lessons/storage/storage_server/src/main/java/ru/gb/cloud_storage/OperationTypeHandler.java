@@ -18,7 +18,7 @@ import java.util.HashSet;
 public class OperationTypeHandler extends ChannelInboundHandlerAdapter {
 
     private static final Logger logger = LogManager.getLogger(OperationTypeHandler.class);
-    private final Path userDir = Path.of("user_dir");
+    private final Path userDir = Path.of("user_dir_on_server");
     private String username;
     private State currentState = State.IDLE;
 
@@ -37,7 +37,7 @@ public class OperationTypeHandler extends ChannelInboundHandlerAdapter {
         while (buf.readableBytes() > 0) {
             if (currentState == State.IDLE) {
                 byte readBytes = buf.readByte();
-                if (readBytes == (byte) 20) receiveFile(buf);
+                if (readBytes == (byte) 20) receiveFile(ctx.channel(), buf);
                 if ((readBytes > (byte) 30) && (readBytes < (byte) 40)) fileOperations(ctx.channel(), buf, readBytes);
                 if (readBytes == (byte) 40)
                     sendRequestedFile(buf, ctx.channel(), OperationTypeHandler::operationComplete);
@@ -52,7 +52,6 @@ public class OperationTypeHandler extends ChannelInboundHandlerAdapter {
 */
 
     private void fileOperations(Channel channel, ByteBuf buf, byte read) throws IOException {
-        currentState = State.OPTS;
         if (read == (byte) 31) deleteFile(channel, buf);
         if ((read == (byte) 33) || (read == (byte) 32)) moveFile(channel, buf);
         if (read == (byte) 35) sendWalkTree(channel, buf, OperationTypeHandler::operationComplete);
@@ -64,7 +63,7 @@ public class OperationTypeHandler extends ChannelInboundHandlerAdapter {
         if (Files.exists(path)) {
             ByteBufSender.sendFileOpt(channel, (byte) 45);
             ByteBufSender.sendFileName(channel, path);
-            logger.info("Start requested file sending");
+            logger.info("Start requested file {} sending", path.getFileName());
             ByteBufSender.sendFile(channel, path, finishListener);
         } else {
             sendFileNotFound(channel, path);
@@ -72,25 +71,22 @@ public class OperationTypeHandler extends ChannelInboundHandlerAdapter {
         }
     }
 
-    private void receiveFile(ByteBuf buf) throws IOException {
-        long receivedFileLength = 0L;
-        logger.info("Start file receiving");
-        try (BufferedOutputStream out = new BufferedOutputStream(
-                new FileOutputStream("from_client_" +
-                        ByteBufReceiver.receiveFileName(buf, State.NAME_LENGTH)))) {
-            long fileLength = ByteBufReceiver.receiveFileLength(buf, State.FILE_LENGTH);
-            currentState = State.DATA;
-            while (buf.readableBytes() > 0) {
-                out.write(buf.readByte());
-                receivedFileLength++;
-                if (fileLength == receivedFileLength) {
-                    currentState = State.IDLE;
-                    logger.info("File successfully received");
-                    break;
-                    //TODO Написать здесь отправку обратно md5-суммы файла для проверки на повреждения
-                }
+    private void receiveFile(Channel channel, ByteBuf buf) throws IOException {
+        Path path = Path.of(ByteBufReceiver.receiveFileName(buf, State.NAME_LENGTH));
+        long fileLength = ByteBufReceiver.receiveFileLength(buf, State.FILE_LENGTH);
+        Files.createDirectories(userDir);
+        String fileName = userDir.resolve(path.getFileName()).toString();
+        if (Files.notExists(Path.of(fileName))) {
+            try (BufferedOutputStream out = new BufferedOutputStream(new FileOutputStream(fileName))) {
+                logger.info("Start receiving file {}", path.getFileName());
+                ByteBufReceiver.receiveFile(buf, out, fileLength, logger);
+            } catch (IOException e) {
+                e.printStackTrace();
             }
-        }
+        } else
+            sendFileAlreadyExist(channel, path);
+        currentState = State.ERROR;
+        //TODO request for overwrite file in GUI
     }
 
     private void deleteFile(Channel channel, ByteBuf buf) throws IOException {
@@ -184,8 +180,14 @@ public class OperationTypeHandler extends ChannelInboundHandlerAdapter {
     }
 
     private void sendFileNotFound(Channel channel, Path path) {
-        logger.warn("File not found");
+        logger.warn("File {} not found", path.getFileName());
         ByteBufSender.sendFileOpt(channel, (byte) 0);
+        ByteBufSender.sendFileName(channel, path);
+    }
+
+    private void sendFileAlreadyExist(Channel channel, Path path) {
+        logger.warn("File {} already exist on server, overwrite it?", path.getFileName());
+        ByteBufSender.sendFileOpt(channel, (byte) 10);
         ByteBufSender.sendFileName(channel, path);
     }
 
