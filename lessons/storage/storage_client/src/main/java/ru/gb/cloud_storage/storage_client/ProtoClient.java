@@ -8,6 +8,7 @@ import org.apache.logging.log4j.Logger;
 import ru.gb.cloud_storage.storage_common.ByteBufSender;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.concurrent.CountDownLatch;
@@ -43,10 +44,14 @@ public class ProtoClient {
 
     private static void sendFile(String fileName, ChannelFutureListener finishListener) throws IOException, InterruptedException {
         Path path = Paths.get(fileName);
-        Channel channel = initChannel();
-        ByteBufSender.sendFileOpt(channel, (byte) 20);
-        ByteBufSender.sendFileName(channel, path);
-        ByteBufSender.sendFile(channel, path, finishListener);
+        if (Files.exists(path)) {
+            Channel channel = initChannel();
+            ByteBufSender.sendFileOpt(channel, (byte) 20);
+            ByteBufSender.sendFileName(channel, path);
+            ByteBufSender.sendFile(channel, path, finishListener);
+        }
+        else
+            logger.error("File doesn't exist");
     }
 
     private static void requestFile(Path path) throws InterruptedException {

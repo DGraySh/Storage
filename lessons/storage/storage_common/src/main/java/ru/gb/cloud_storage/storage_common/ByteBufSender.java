@@ -34,6 +34,7 @@ public class ByteBufSender {
     }
 
     public static void sendFile(Channel channel, Path path, ChannelFutureListener finishListener) throws IOException {
+
         FileRegion region = new DefaultFileRegion(path.toFile(), 0, Files.size(path));
         ByteBuf buf = ByteBufAllocator.DEFAULT.directBuffer(8);
         buf.writeLong(Files.size(path));
