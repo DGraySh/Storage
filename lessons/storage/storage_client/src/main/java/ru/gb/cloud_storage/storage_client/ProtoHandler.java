@@ -7,16 +7,20 @@ import ru.gb.cloud_storage.storage_common.ByteBufReceiver;
 import ru.gb.cloud_storage.storage_common.State;
 
 import java.io.*;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.List;
 
 public class ProtoHandler extends ChannelInboundHandlerAdapter {
 
     private State currentState = State.IDLE;
-    private int nextLength;
-    private long fileLength;
-    private long receivedFileLength;
+    private Path userDir = Path.of("./user_directory");
+
+
+    public ProtoHandler() throws IOException {
+    }
 
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
@@ -24,13 +28,22 @@ public class ProtoHandler extends ChannelInboundHandlerAdapter {
         while (buf.readableBytes() > 0) {
             if (currentState == State.IDLE) {
                 byte readBytes = buf.readByte();
-                if (readBytes == (byte) 45) receiveFile(buf);
-                else if (readBytes == (byte) 31) System.out.println("file deleted");
-                else if (readBytes == (byte) 32) System.out.println("file renamed");
-                else if (readBytes == (byte) 33) System.out.println("file moved");
-                else if (readBytes == (byte) 35) receiveFileTree(buf);
-                else if (readBytes == (byte) 0) receiveFileNotFound(buf);
-                else System.out.println("ERROR: Invalid first byte - " + readBytes);
+                switch (readBytes) {
+                    case (byte) 45: receiveFile(buf);
+                        break;
+                    case (byte) 31: System.out.println("file deleted");
+                        break;
+                    case (byte) 32: System.out.println("file renamed");
+                        break;
+                    case (byte) 33: System.out.println("file moved");
+                        break;
+                    case (byte) 35: receiveFileTree(buf);
+                        break;
+                    case (byte) 0: receiveFileNotFound(buf);
+                        break;
+                    default: System.out.println("ERROR: Invalid first byte - " + readBytes);
+                    break;
+                }
             }
         }
         if (buf.readableBytes() == 0) {
@@ -38,29 +51,24 @@ public class ProtoHandler extends ChannelInboundHandlerAdapter {
         }
     }
 
-    private void receiveFile(ByteBuf buf) throws IOException {
-        String fileName = ByteBufReceiver.receiveFileName(buf, State.NAME_LENGTH);
-
+    private void receiveFile(ByteBuf buf) {
+        Path path = Path.of(ByteBufReceiver.receiveFileName(buf, State.NAME_LENGTH));
         long fileLength = ByteBufReceiver.receiveFileLength(buf, State.FILE_LENGTH);
-
-        BufferedOutputStream out = new BufferedOutputStream(new FileOutputStream("_from_Server_" + fileName));
-        System.out.println("STATE: Start file receiving");
-        ByteBufReceiver.receiveFile(buf, out, fileLength);
-        //currentState = State.IDLE;
+        String fileName = userDir.resolve(path.getFileName()).toString();
+        if (Files.notExists(Path.of(fileName))) {
+            try (BufferedOutputStream out = new BufferedOutputStream(new FileOutputStream(fileName))) {
+                System.out.println("STATE: Start file receiving");
+                ByteBufReceiver.receiveFile(buf, out, fileLength);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        else System.out.println("File already exists");//TODO request for overwrite file in GUI
+        currentState = State.ERROR;
+//        buf.release();
     }
 
-//
-//        ByteArrayInputStream bais = new ByteArrayInputStream(Files.readAllBytes(Paths.get("_from_Server_")));
-//        DataInputStream in = new DataInputStream(bais);
-//        ArrayList<Path> paths = new ArrayList<>();
-//        while (in.available() > 0) {
-//            String element = in.readUTF();
-//            paths.add(Paths.get(element));
-//        }
-//        System.out.println(paths);
-
-
-    private void receiveFileTree(ByteBuf buf) throws IOException {
+    private List<Path> receiveFileTree(ByteBuf buf) throws IOException {
         System.out.println("STATE: Start tree bytes receiving");
         byte[] bytes = new byte[buf.readableBytes()];
 
@@ -77,14 +85,13 @@ public class ProtoHandler extends ChannelInboundHandlerAdapter {
             String element = in.readUTF();
             paths.add(Paths.get(element));
         }
-
         System.out.println("Tree received");
-        System.out.println(paths);
+        return paths;
     }
 
     private void receiveFileNotFound(ByteBuf buf) {
         String fileName = ByteBufReceiver.receiveFileName(buf, State.NAME_LENGTH);
-        System.out.println("file "+ fileName + " not found");//TODO
+        System.out.printf("file %s not found", fileName);
     }
 
     @Override
