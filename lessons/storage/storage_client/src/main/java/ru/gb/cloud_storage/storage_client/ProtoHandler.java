@@ -3,6 +3,8 @@ package ru.gb.cloud_storage.storage_client;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import ru.gb.cloud_storage.storage_common.ByteBufReceiver;
 import ru.gb.cloud_storage.storage_common.State;
 
@@ -17,6 +19,7 @@ public class ProtoHandler extends ChannelInboundHandlerAdapter {
 
     private State currentState = State.IDLE;
     private Path userDir = Path.of("./user_directory");
+    private static final Logger logger = LogManager.getLogger(ProtoHandler.class);
 
 
     public ProtoHandler() throws IOException {
@@ -31,17 +34,17 @@ public class ProtoHandler extends ChannelInboundHandlerAdapter {
                 switch (readBytes) {
                     case (byte) 45: receiveFile(buf);
                         break;
-                    case (byte) 31: System.out.println("file deleted");
+                    case (byte) 31: logger.info("File deleted");
                         break;
-                    case (byte) 32: System.out.println("file renamed");
+                    case (byte) 32: logger.info("File renamed");
                         break;
-                    case (byte) 33: System.out.println("file moved");
+                    case (byte) 33: logger.info("File moved");
                         break;
                     case (byte) 35: receiveFileTree(buf);
                         break;
                     case (byte) 0: receiveFileNotFound(buf);
                         break;
-                    default: System.out.println("ERROR: Invalid first byte - " + readBytes);
+                    default: logger.error("ERROR: Invalid first byte - {}", readBytes);
                     break;
                 }
             }
@@ -57,19 +60,18 @@ public class ProtoHandler extends ChannelInboundHandlerAdapter {
         String fileName = userDir.resolve(path.getFileName()).toString();
         if (Files.notExists(Path.of(fileName))) {
             try (BufferedOutputStream out = new BufferedOutputStream(new FileOutputStream(fileName))) {
-                System.out.println("STATE: Start file receiving");
-                ByteBufReceiver.receiveFile(buf, out, fileLength);
+                logger.info("Start file receiving");
+                ByteBufReceiver.receiveFile(buf, out, fileLength, logger);
             } catch (IOException e) {
                 e.printStackTrace();
             }
         }
-        else System.out.println("File already exists");//TODO request for overwrite file in GUI
+        else logger.warn("File already exists");//TODO request for overwrite file in GUI
         currentState = State.ERROR;
 //        buf.release();
     }
 
     private List<Path> receiveFileTree(ByteBuf buf) throws IOException {
-        System.out.println("STATE: Start tree bytes receiving");
         byte[] bytes = new byte[buf.readableBytes()];
 
         while (buf.readableBytes() > 0) {
@@ -85,13 +87,13 @@ public class ProtoHandler extends ChannelInboundHandlerAdapter {
             String element = in.readUTF();
             paths.add(Paths.get(element));
         }
-        System.out.println("Tree received");
+        logger.info("File tree received");
         return paths;
     }
 
     private void receiveFileNotFound(ByteBuf buf) {
         String fileName = ByteBufReceiver.receiveFileName(buf, State.NAME_LENGTH);
-        System.out.printf("file %s not found", fileName);
+        logger.warn("file {} not found", fileName);
     }
 
     @Override

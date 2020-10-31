@@ -9,6 +9,10 @@ import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 
 public class Server {
+    public static void main(String[] args) throws Exception {
+        new Server().run();
+    }
+
     public void run() throws Exception {
         EventLoopGroup bossGroup = new NioEventLoopGroup();
         EventLoopGroup workerGroup = new NioEventLoopGroup();
@@ -29,9 +33,5 @@ public class Server {
             workerGroup.shutdownGracefully();
             bossGroup.shutdownGracefully();
         }
-    }
-
-    public static void main(String[] args) throws Exception {
-        new Server().run();
     }
 }

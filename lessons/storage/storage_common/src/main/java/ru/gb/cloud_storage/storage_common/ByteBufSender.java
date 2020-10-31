@@ -15,16 +15,16 @@ public class ByteBufSender {
         throw new IllegalStateException("Utility class");
     }
 
-    public static void sendFileOpt(Channel channel, ByteBuf buf, byte comByte) {
-        buf = ByteBufAllocator.DEFAULT.directBuffer(1);
+    public static void sendFileOpt(Channel channel, byte comByte) {
+        ByteBuf buf = ByteBufAllocator.DEFAULT.directBuffer(1);
         buf.writeByte(comByte);
         channel.writeAndFlush(buf);
     }
 
-    public static void sendFileName( Channel channel, ByteBuf buf, Path path) {
+    public static void sendFileName(Channel channel, Path path) {
         byte[] filenameBytes = path.toString().getBytes(StandardCharsets.UTF_8);
 
-        buf = ByteBufAllocator.DEFAULT.directBuffer(4);
+        ByteBuf buf = ByteBufAllocator.DEFAULT.directBuffer(4);
         buf.writeInt(filenameBytes.length);
         channel.writeAndFlush(buf);
 
@@ -33,9 +33,9 @@ public class ByteBufSender {
         channel.writeAndFlush(buf);
     }
 
-    public static void sendFile(Channel channel, ByteBuf buf, Path path, ChannelFutureListener finishListener) throws IOException {
+    public static void sendFile(Channel channel, Path path, ChannelFutureListener finishListener) throws IOException {
         FileRegion region = new DefaultFileRegion(path.toFile(), 0, Files.size(path));
-        buf = ByteBufAllocator.DEFAULT.directBuffer(8);
+        ByteBuf buf = ByteBufAllocator.DEFAULT.directBuffer(8);
         buf.writeLong(Files.size(path));
         channel.writeAndFlush(buf);
 

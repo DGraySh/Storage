@@ -2,6 +2,8 @@ package ru.gb.cloud_storage;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.*;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import ru.gb.cloud_storage.storage_common.ByteBufReceiver;
 import ru.gb.cloud_storage.storage_common.ByteBufSender;
 import ru.gb.cloud_storage.storage_common.State;
@@ -15,7 +17,8 @@ import java.util.HashSet;
 
 public class OperationTypeHandler extends ChannelInboundHandlerAdapter {
 
-    private Path userDir = Path.of("user_dir");
+    private static final Logger logger = LogManager.getLogger(OperationTypeHandler.class);
+    private final Path userDir = Path.of("user_dir");
     private String username;
     private State currentState = State.IDLE;
 
@@ -24,7 +27,7 @@ public class OperationTypeHandler extends ChannelInboundHandlerAdapter {
             future.cause().printStackTrace();
         }
         if (future.isSuccess()) {
-            System.out.println("Файл успешно передан");
+            logger.info("File successfully sent");
         }
     }
 
@@ -35,11 +38,9 @@ public class OperationTypeHandler extends ChannelInboundHandlerAdapter {
             if (currentState == State.IDLE) {
                 byte readBytes = buf.readByte();
                 if (readBytes == (byte) 20) receiveFile(buf);
-                if ((readBytes > (byte) 30 ) && (readBytes < (byte)40)) FileOpts(ctx.channel(), buf, readBytes);
-                if (readBytes == (byte) 40) sendRequestedFile(buf, ctx.channel(), OperationTypeHandler::operationComplete);
-                if (buf.readableBytes() == 0) {
-                    buf.release();
-                }
+                if ((readBytes > (byte) 30) && (readBytes < (byte) 40)) fileOperations(ctx.channel(), buf, readBytes);
+                if (readBytes == (byte) 40)
+                    sendRequestedFile(buf, ctx.channel(), OperationTypeHandler::operationComplete);
             }
         }
     }
@@ -50,9 +51,8 @@ public class OperationTypeHandler extends ChannelInboundHandlerAdapter {
     }
 */
 
-    private void FileOpts(Channel channel, ByteBuf buf, byte read) throws IOException {
+    private void fileOperations(Channel channel, ByteBuf buf, byte read) throws IOException {
         currentState = State.OPTS;
-        System.out.println("STATE: Start file operations");
         if (read == (byte) 31) deleteFile(channel, buf);
         if ((read == (byte) 33) || (read == (byte) 32)) moveFile(channel, buf);
         if (read == (byte) 35) sendWalkTree(channel, buf, OperationTypeHandler::operationComplete);
@@ -62,19 +62,19 @@ public class OperationTypeHandler extends ChannelInboundHandlerAdapter {
     private void sendRequestedFile(ByteBuf buf, Channel channel, ChannelFutureListener finishListener) throws IOException {
         Path path = Path.of(ByteBufReceiver.receiveFileName(buf, State.NAME_LENGTH));
         if (Files.exists(path)) {
-            ByteBufSender.sendFileOpt(channel, buf, (byte) 45);
-            ByteBufSender.sendFileName(channel, buf, path);
-            System.out.println("STATE: Start requested file sending");
-            ByteBufSender.sendFile(channel, buf, path, finishListener);
+            ByteBufSender.sendFileOpt(channel, (byte) 45);
+            ByteBufSender.sendFileName(channel, path);
+            logger.info("Start requested file sending");
+            ByteBufSender.sendFile(channel, path, finishListener);
         } else {
-            sendFileNotFound(channel, buf, path);
-            System.out.printf("file %s not found", path.getFileName());
+            sendFileNotFound(channel, path);
+            logger.info("file {} not found", path.getFileName());
         }
     }
 
     private void receiveFile(ByteBuf buf) throws IOException {
         long receivedFileLength = 0L;
-        System.out.println("STATE: Start file receiving");
+        logger.info("Start file receiving");
         try (BufferedOutputStream out = new BufferedOutputStream(
                 new FileOutputStream("from_client_" +
                         ByteBufReceiver.receiveFileName(buf, State.NAME_LENGTH)))) {
@@ -85,9 +85,9 @@ public class OperationTypeHandler extends ChannelInboundHandlerAdapter {
                 receivedFileLength++;
                 if (fileLength == receivedFileLength) {
                     currentState = State.IDLE;
-                    System.out.println("File received");
+                    logger.info("File successfully received");
                     break;
-                    /*Написать здесь отправку обратно md5-суммы файла для проверки на повреждения *///TODO
+                    //TODO Написать здесь отправку обратно md5-суммы файла для проверки на повреждения
                 }
             }
         }
@@ -97,11 +97,11 @@ public class OperationTypeHandler extends ChannelInboundHandlerAdapter {
         Path path = Paths.get(ByteBufReceiver.receiveFileName(buf, State.NAME_LENGTH));
         if (Files.exists(path)) {
             Files.deleteIfExists(path);
-            System.out.printf("file %s deleted by user %s%n", path.getFileName(), username);
-            ByteBufSender.sendFileOpt(channel, buf, (byte) 31);
+            logger.info("file {} deleted by user {}", path.getFileName(), username);
+            ByteBufSender.sendFileOpt(channel, (byte) 31);
         } else {
-            sendFileNotFound(channel, buf, path);
-            System.out.printf("file %s not found%n", path.getFileName());
+            sendFileNotFound(channel, path);
+            logger.warn("file {} not found", path.getFileName());
         }
         currentState = State.IDLE;
     }
@@ -128,16 +128,15 @@ public class OperationTypeHandler extends ChannelInboundHandlerAdapter {
         if (Files.exists(oldPath)) {
             Files.createDirectories(newPath.getParent());
             Files.move(oldPath, newPath, StandardCopyOption.REPLACE_EXISTING);
-            if (oldPath.getParent().compareTo(newPath.getParent()) !=0) {
-                ByteBufSender.sendFileOpt(channel, buf, (byte) 32);
-                System.out.printf("file %s renamed to %s by user %s%n", oldPath.getFileName(), newPath.getFileName(), username);
-            }
-            else {
-                ByteBufSender.sendFileOpt(channel, buf, (byte) 33);
-                System.out.printf("file %s moved to %s by user %s%n", oldPath.getFileName(), newPath, username);
+            if (oldPath.getParent().compareTo(newPath.getParent()) != 0) {
+                ByteBufSender.sendFileOpt(channel, (byte) 32);
+                logger.info("file {} renamed to {} by user {}", oldPath.getFileName(), newPath.getFileName(), username);
+            } else {
+                ByteBufSender.sendFileOpt(channel, (byte) 33);
+                logger.info("file {} moved to {} by user {}", oldPath.getFileName(), newPath, username);
             }
         } else {
-            sendFileNotFound(channel, buf, oldPath);
+            sendFileNotFound(channel, oldPath);
         }
         currentState = State.IDLE;
     }
@@ -165,8 +164,9 @@ public class OperationTypeHandler extends ChannelInboundHandlerAdapter {
                     });
         } catch (IOException e) {
             e.printStackTrace();
+            logger.error("Exception in WalkTree");
         }
-        //convert filetree to byte[] and send
+        //convert file tree to byte[] and send
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         DataOutputStream out = new DataOutputStream(baos);
 
@@ -175,7 +175,7 @@ public class OperationTypeHandler extends ChannelInboundHandlerAdapter {
         }
         byte[] bytes = baos.toByteArray();
         buf.writeBytes(bytes);
-        ByteBufSender.sendFileOpt(channel, buf, (byte) 35);
+        ByteBufSender.sendFileOpt(channel, (byte) 35);
 
         ChannelFuture transferOperationFuture = channel.writeAndFlush(buf);
         if (finishListener != null) {
@@ -183,21 +183,20 @@ public class OperationTypeHandler extends ChannelInboundHandlerAdapter {
         }
     }
 
-    private void sendFileNotFound(Channel channel, ByteBuf buf, Path path) throws IOException {
-        System.out.println("file not found");
-        ByteBufSender.sendFileOpt(channel, buf, (byte) 0);
-        ByteBufSender.sendFileName(channel, buf, path);
+    private void sendFileNotFound(Channel channel, Path path) {
+        logger.warn("File not found");
+        ByteBufSender.sendFileOpt(channel, (byte) 0);
+        ByteBufSender.sendFileName(channel, path);
     }
 
 
     private void sendFile(String fileName, Channel channel, ChannelFutureListener finishListener) throws IOException {
         Path path = Paths.get(fileName);
         FileRegion region = new DefaultFileRegion(path.toFile(), 0, Files.size(path));
-        ByteBuf buf = null;
 
-        ByteBufSender.sendFileOpt(channel, buf, (byte) 20);
-        ByteBufSender.sendFileName(channel, buf, path);
-        ByteBufSender.sendFile(channel, buf, path, finishListener);
+        ByteBufSender.sendFileOpt(channel, (byte) 20);
+        ByteBufSender.sendFileName(channel, path);
+        ByteBufSender.sendFile(channel, path, finishListener);
 
         ChannelFuture transferOperationFuture = channel.writeAndFlush(region);
         if (finishListener != null) {
