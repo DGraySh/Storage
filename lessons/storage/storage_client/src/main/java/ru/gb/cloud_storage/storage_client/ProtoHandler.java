@@ -18,11 +18,15 @@ import java.util.List;
 public class ProtoHandler extends ChannelInboundHandlerAdapter {
 
     private static final Logger logger = LogManager.getLogger(ProtoHandler.class);
-    private final Path userDIr = Path.of("./user_directory");
+    private final Path userDIr = Paths.get("./user_directory");
     private State currentState = State.IDLE;
 
+    private CallMeBack cb;
 
-    public ProtoHandler() {
+    private String[] list = new String[0];
+
+    public ProtoHandler(CallMeBack cb) {
+        this.cb = cb;
     }
 
     @Override
@@ -45,7 +49,10 @@ public class ProtoHandler extends ChannelInboundHandlerAdapter {
                         logger.info("File moved");
                         break;
                     case (byte) 35:
-                        receiveFileTree(buf);
+                        logger.info(receiveFileTree(buf, cb));
+                        break;
+                    case (byte) 50:
+                        receiveFileList(buf, cb);
                         break;
                     case (byte) 10:
                         fileAlreadyExist(buf);
@@ -64,12 +71,38 @@ public class ProtoHandler extends ChannelInboundHandlerAdapter {
         }
     }
 
+    private void receiveFileList(ByteBuf buf, CallMeBack cb) throws IOException {
+
+        byte[] bytes = new byte[buf.readableBytes()];
+
+        while (buf.readableBytes() > 0) {
+            buf.readBytes(bytes);
+        }
+
+        ByteArrayInputStream bais = new ByteArrayInputStream(bytes);
+        DataInputStream in = new DataInputStream(bais);
+
+        ArrayList<String> list = new ArrayList<>();
+
+        while (in.available() > 0) {
+            String element = in.readUTF();
+            list.add(element);
+        }
+
+        logger.info("Dirs received");
+        System.out.println("handler:" + list);
+
+        cb.callMe(list);
+//        UI.setPaths(paths);
+//        return list;
+    }
+
     private void receiveFile(ByteBuf buf) throws IOException {
-        Path path = Path.of(ByteBufReceiver.receiveFileName(buf, State.NAME_LENGTH));
+        Path path = Paths.get(ByteBufReceiver.receiveFileName(buf, State.NAME_LENGTH));
         long fileLength = ByteBufReceiver.receiveFileLength(buf, State.FILE_LENGTH);
         Files.createDirectories(userDIr);
         String fileName = userDIr.resolve(path.getFileName()).toString();
-        if (Files.notExists(Path.of(fileName))) {
+        if (Files.notExists(Paths.get(fileName))) {
             try (BufferedOutputStream out = new BufferedOutputStream(new FileOutputStream(fileName))) {
                 logger.info("Start receiving file {}", path.getFileName());
                 ByteBufReceiver.receiveFile(buf, out, fileLength, logger);
@@ -82,7 +115,8 @@ public class ProtoHandler extends ChannelInboundHandlerAdapter {
         //TODO request for overwrite file in GUI
     }
 
-    private List<Path> receiveFileTree(ByteBuf buf) throws IOException {
+    private List<Path> receiveFileTree(ByteBuf buf, CallMeBack cb) throws IOException {
+
         byte[] bytes = new byte[buf.readableBytes()];
 
         while (buf.readableBytes() > 0) {
@@ -92,14 +126,17 @@ public class ProtoHandler extends ChannelInboundHandlerAdapter {
         ByteArrayInputStream bais = new ByteArrayInputStream(bytes);
         DataInputStream in = new DataInputStream(bais);
 
-        ArrayList<Path> paths = new ArrayList<>();
+        ArrayList<Path> paths1 = new ArrayList<>();
 
         while (in.available() > 0) {
             String element = in.readUTF();
-            paths.add(Paths.get(element));
+            paths1.add(Paths.get(element));
         }
         logger.info("File tree received");
-        return paths;
+//        System.out.println(paths1.stream().map(Path::toString).collect(Collectors.toList()));
+
+//        UI.setPaths(paths);
+        return paths1;
     }
 
     private void receiveFileNotFound(ByteBuf buf) {
@@ -111,6 +148,8 @@ public class ProtoHandler extends ChannelInboundHandlerAdapter {
         String fileName = ByteBufReceiver.receiveFileName(buf, State.NAME_LENGTH);
         logger.warn("file {} already exist", fileName);
     }
+
+
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {

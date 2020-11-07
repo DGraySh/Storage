@@ -18,12 +18,14 @@ public class ByteBufReceiver {
         int nameLength = 0;
         if ((currentState == State.NAME_LENGTH) && (buf.readableBytes() >= 4)) {
             nameLength = buf.readInt();
+            System.out.println("length " +nameLength);
             currentState = State.NAME;
         }
 
         if ((currentState == State.NAME) && (buf.readableBytes() >= nameLength)) {
             fileName = new byte[nameLength];
             buf.readBytes(fileName);
+            System.out.println("filename " +fileName);
         }
         if (fileName != null) {
             return new String(fileName, StandardCharsets.UTF_8);

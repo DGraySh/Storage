@@ -27,7 +27,7 @@ public class Server {
                         }
                     });
             // .childOption(ChannelOption.SO_KEEPALIVE, true);
-            ChannelFuture f = b.bind(8189).sync();
+            ChannelFuture f = b.bind(8186).sync();
             f.channel().closeFuture().sync();
         } finally {
             workerGroup.shutdownGracefully();

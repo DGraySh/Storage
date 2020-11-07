@@ -30,6 +30,7 @@ public class ByteBufSender {
 
         buf = ByteBufAllocator.DEFAULT.directBuffer(filenameBytes.length);
         buf.writeBytes(filenameBytes);
+        System.out.println(new String(filenameBytes));
         channel.writeAndFlush(buf);
     }
 

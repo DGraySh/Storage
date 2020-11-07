@@ -15,31 +15,40 @@ import java.util.concurrent.CountDownLatch;
 
 public class ProtoClient {
     private static final Logger logger = LogManager.getLogger(ProtoClient.class);
+    private static CallMeBack cb;
+
+    public ProtoClient(CallMeBack cb) {
+        this.cb = cb;
+    }
 
     public static void main(String[] args) throws Exception {
 
-        Channel channel = initChannel();
 
-        sendFile("./1/2/2.txt", channel, ProtoClient::operationComplete);
+//        Channel channel = initChannel(cb);
+//        requestFileTree(channel);
+//        sendFile("./1/2/2.txt", channel, ProtoClient::operationComplete);
 //        requestFile(channel, Path.of("./1/3.txt"));
 //        Thread.sleep(2000);
 //        deleteFile(channel, Path.of("./1/1.txt"));
-//        Thread.sleep(2000);
-//        moveFile(channel, Path.of("./1/3.txt"), Path.of("./1/5/31.txt"));
+//        Thread.sleep(1000);
+//        requestFileTree(channel);
+//        Thread.sleep(1000);
+//
+//        moveFile(channel, Paths.get("./1/5/3.txt"), Paths.get("./1/5/31.txt"));
 //        Thread.sleep(4000);
 //        renameFile(channel, Path.of("./1/7.txt"), Path.of("./1/71.txt"));
 //        Thread.sleep(2000);
-//        requestFileTree(channel);
+//
 //        Thread.sleep(2000);
 
-        Network.getInstance().stop();
+//        Network.getInstance().stop();
 
 
     }
 
-    private static Channel initChannel() throws InterruptedException {
+    public static Channel initChannel(CallMeBack cb, CallBackDirs cbd) throws InterruptedException {
         CountDownLatch networkStarter = new CountDownLatch(1);
-        new Thread(() -> Network.getInstance().start(networkStarter)).start();
+        new Thread(() -> Network.getInstance().start(networkStarter, cb)).start();
         networkStarter.await();
         return Network.getInstance().getCurrentChannel();
     }
@@ -74,7 +83,7 @@ public class ProtoClient {
         moveFile(channel, oldPath, newPath);
     }
 
-    private static void requestFileTree(Channel channel) {
+    public static void requestFileTree(Channel channel) {
         ByteBufSender.sendFileOpt(channel, (byte) 35);
     }
 

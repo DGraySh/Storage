@@ -27,19 +27,19 @@ public class Network {
         return currentChannel;
     }
 
-    public void start(CountDownLatch countDownLatch) {
+    public void start(CountDownLatch countDownLatch, CallMeBack cb) {
         EventLoopGroup group = new NioEventLoopGroup();
         try {
             Bootstrap clientBootstrap = new Bootstrap();
-            clientBootstrap.group(group)
-                    .channel(NioSocketChannel.class)
-                    .remoteAddress(new InetSocketAddress("localhost", 8189))
-                    .handler(new ChannelInitializer<SocketChannel>() {
-                        protected void initChannel(SocketChannel socketChannel) throws Exception {
-                            socketChannel.pipeline().addLast(new ProtoHandler());
-                            currentChannel = socketChannel;
-                        }
-                    });
+            clientBootstrap.group(group);
+            clientBootstrap.channel(NioSocketChannel.class);
+            clientBootstrap.remoteAddress(new InetSocketAddress("localhost", 8186));
+            clientBootstrap.handler(new ChannelInitializer<SocketChannel>() {
+                protected void initChannel(SocketChannel socketChannel) throws Exception {
+                    socketChannel.pipeline().addLast(new ProtoHandler(cb));
+                    currentChannel = socketChannel;
+                }
+            });
             ChannelFuture channelFuture = clientBootstrap.connect().sync();
             countDownLatch.countDown();
             channelFuture.channel().closeFuture().sync();
