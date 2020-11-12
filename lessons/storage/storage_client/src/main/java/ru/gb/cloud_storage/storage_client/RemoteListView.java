@@ -1,46 +1,48 @@
 package ru.gb.cloud_storage.storage_client;
 
 import io.netty.channel.Channel;
+import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.scene.control.ListView;
 import javafx.scene.control.SelectionMode;
-import javafx.scene.control.TextField;
 import javafx.scene.input.MouseButton;
-import ru.gb.cloud_storage.storage_client.UIX.DialogHelper;
-import ru.gb.cloud_storage.storage_client.UIX.StringHelper;
-import ru.gb.cloud_storage.storage_client.UIX.SystemIconsHelper;
-import ru.gb.cloud_storage.storage_client.UIX.WatchServiceHelper;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import ru.gb.cloud_storage.storage_common.ByteBufSender;
-import ru.gb.cloud_storage.storage_common.FileBrowser;
+import ru.gb.cloud_storage.storage_common.CallMeBack;
 
 import java.awt.*;
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.nio.file.Paths;
 import java.util.concurrent.CountDownLatch;
 
 public class RemoteListView extends ListView<String> {
 
-    private File dir;
-    ObservableList<String> childrenList = FXCollections.observableArrayList();
+    private static final Logger logger = LogManager.getLogger(ProtoHandler.class);
+    private final Path userRootDir;
+    private final ObservableList<String> childrenList = FXCollections.observableArrayList();
+    private Path requestedDir;
+//    private final WatchService remoteWatchService;
 
 
-    public RemoteListView() throws InterruptedException {
+    public RemoteListView(String path) {
         super();
         getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
-//        dir = new File(path);
+        userRootDir = Paths.get(path);
+        requestedDir = userRootDir;
 
-        requestFileList(initChannel((childrenList::addAll))); //receive FL from server
-        setItems(childrenList);
+        Platform.runLater(() -> {
+            try {
+                requestFileList(initChannel((childrenList::addAll))); //receive FL from server
+                setItems(childrenList);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        });
 
-
-//        mTextField = new TextField();
-//        mTextField.setStyle("-fx-font-size: 10px;");
-
-/*
         setOnKeyPressed(key -> {
             switch (key.getCode()) {
                 case ENTER:
@@ -56,16 +58,41 @@ public class RemoteListView extends ListView<String> {
             if (m.getButton().equals(MouseButton.PRIMARY) && m.getClickCount() == 2)
                 navigate(getSelectionModel().getSelectedItem());
         });
+
+//        remoteWatchService = new WatchService(this);
+//        refresh();
+    }
+
+//        mTextField = new TextField();
+//        mTextField.setStyle("-fx-font-size: 10px;");
+
+/*
+
+        setOnMouseClicked(m -> {
+            if (m.getButton().equals(MouseButton.PRIMARY) && m.getClickCount() == 2)
+                navigate(getSelectionModel().getSelectedItem());
+        });
         setCellFactory(list -> new SystemIconsHelper.AttachmentListCell(ru.gb.cloud_storage.storage_client.UIX.ListView.this));
         mWatchServiceHelper = new WatchServiceHelper(this);
         refresh();
 */
-    }
 
 
     @Override
     public void refresh() {
+        childrenList.clear();
+//        for (int i = 0; i < 100; i++) {
+        try {
+            requestFileList(initChannel(childrenList::addAll));
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+//            }
+        }
+    }
+//        remoteWatchService.changeObservableDirectory(requestedDir.toPath());
 
+    public Path getDirectory() {
+        return requestedDir;
     }
 
 /*
@@ -84,9 +111,7 @@ public class RemoteListView extends ListView<String> {
     }
 
 
-    public Path getDirectory() {
-        return mDirectory.toPath();
-    }
+
 
     public void select(String regex) {
         if (regex.startsWith("*")) regex = "." + regex;
@@ -175,15 +200,48 @@ public class RemoteListView extends ListView<String> {
     }
 */
 
-    public static Channel initChannel(CallMeBack cb) throws InterruptedException {
+    private void navigate(String name) {
+        String selectedPath = requestedDir + File.separator + name;
+        Path selectedFile = Paths.get(selectedPath);
+        if (selectedFile.toFile().isDirectory()) {
+            try {
+                requestedDir = selectedFile.toRealPath();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            refresh();
+        } else {
+            try {
+                Desktop.getDesktop().open(selectedFile.toFile());
+            } catch (Exception e) {
+//                DialogHelper.showException(e);//TODO
+            }
+        }
+    }
+
+    private void back() {
+        Path parent = requestedDir.getParent();
+        if ((parent != null) && (parent.equals(userRootDir))) {
+            requestedDir = parent;
+            if (requestedDir.toFile().exists()) {
+                refresh();
+            } else {
+                back();
+            }
+        }
+    }
+
+
+    public Channel initChannel(CallMeBack cb) throws InterruptedException {
         CountDownLatch networkStarter = new CountDownLatch(1);
         new Thread(() -> Network.getInstance().start(networkStarter, cb)).start();
         networkStarter.await();
         return Network.getInstance().getCurrentChannel();
     }
 
-    public static void requestFileList(Channel channel) {
-        ByteBufSender.sendFileOpt(channel, (byte) 50);
+    public void requestFileList(Channel channel) {
+            ByteBufSender.sendFileOpt(channel, (byte) 50);
+            ByteBufSender.sendFileName(channel, requestedDir);
     }
 
 }

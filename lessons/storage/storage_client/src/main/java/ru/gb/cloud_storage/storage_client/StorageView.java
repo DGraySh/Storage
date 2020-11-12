@@ -1,41 +1,20 @@
 package ru.gb.cloud_storage.storage_client;
 
 import io.netty.channel.Channel;
-import javafx.collections.FXCollections;
-import javafx.collections.ObservableList;
-import javafx.scene.control.TextField;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
-import org.jetbrains.annotations.Nullable;
-import ru.gb.cloud_storage.storage_client.UIX.DialogHelper;
-import ru.gb.cloud_storage.storage_client.UIX.FileHelper;
 import ru.gb.cloud_storage.storage_common.ByteBufSender;
-import ru.gb.cloud_storage.storage_common.FileBrowser;
+import ru.gb.cloud_storage.storage_common.CallMeBack;
 
-import java.awt.*;
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
-import java.util.TreeMap;
 import java.util.concurrent.CountDownLatch;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 public class StorageView extends HBox{
 
-    private LocalListView leftListView;
-    private RemoteListView rightListView;
-
     public StorageView() throws InterruptedException {
 
-        leftListView = new LocalListView(".");
-        rightListView = new RemoteListView();
+        LocalListView leftListView = new LocalListView(".");
+        RemoteListView rightListView = new RemoteListView("user_dir_on_server");
 
 /*
         ObservableList<String> leftChildrenList = FXCollections.observableArrayList();
@@ -173,12 +152,12 @@ public class StorageView extends HBox{
 */
 
 
-    public static Channel initChannel(CallMeBack cb) throws InterruptedException {
-        CountDownLatch networkStarter = new CountDownLatch(1);
-        new Thread(() -> Network.getInstance().start(networkStarter, cb)).start();
-        networkStarter.await();
-        return Network.getInstance().getCurrentChannel();
-    }
+//    public static Channel initChannel(CallMeBack cb) throws InterruptedException {
+//        CountDownLatch networkStarter = new CountDownLatch(1);
+//        new Thread(() -> Network.getInstance().start(networkStarter, cb)).start();
+//        networkStarter.await();
+//        return Network.getInstance().getCurrentChannel();
+//    }
 
     public static void requestFileList(Channel channel) {
         ByteBufSender.sendFileOpt(channel, (byte) 50);

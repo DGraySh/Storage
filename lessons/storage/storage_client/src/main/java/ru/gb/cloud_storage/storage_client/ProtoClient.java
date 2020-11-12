@@ -6,6 +6,8 @@ import io.netty.channel.ChannelFutureListener;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import ru.gb.cloud_storage.storage_common.ByteBufSender;
+import ru.gb.cloud_storage.storage_common.CallBackReceive;
+import ru.gb.cloud_storage.storage_common.CallMeBack;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -46,7 +48,7 @@ public class ProtoClient {
 
     }
 
-    public static Channel initChannel(CallMeBack cb, CallBackDirs cbd) throws InterruptedException {
+    public static Channel initChannel(CallMeBack cb, CallBackReceive cbr) throws InterruptedException {
         CountDownLatch networkStarter = new CountDownLatch(1);
         new Thread(() -> Network.getInstance().start(networkStarter, cb)).start();
         networkStarter.await();

@@ -1,11 +1,16 @@
 package ru.gb.cloud_storage.storage_client;
 
 import io.netty.buffer.ByteBuf;
+import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.channel.SimpleChannelInboundHandler;
+import javafx.application.Platform;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import ru.gb.cloud_storage.storage_common.ByteBufReceiver;
+import ru.gb.cloud_storage.storage_common.CallBackReceive;
+import ru.gb.cloud_storage.storage_common.CallMeBack;
 import ru.gb.cloud_storage.storage_common.State;
 
 import java.io.*;
@@ -15,22 +20,29 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
-public class ProtoHandler extends ChannelInboundHandlerAdapter {
+public class ProtoHandler extends SimpleChannelInboundHandler {
 
     private static final Logger logger = LogManager.getLogger(ProtoHandler.class);
     private final Path userDIr = Paths.get("./user_directory");
     private State currentState = State.IDLE;
 
-    private CallMeBack cb;
-
-    private String[] list = new String[0];
+    private CallMeBack cb = null;
+    private CallBackReceive cbd = null;
+    private Channel channel = null;
 
     public ProtoHandler(CallMeBack cb) {
         this.cb = cb;
+        logger.info("protohandler init");
     }
+//    public ProtoHandler(/*Channel channel, */CallMeBack cb, CallBackReceive cbr) {
+////        this.channel = channel;
+//        this.cb = cb;
+//        this.cbd = cbr;
+//        logger.info("protohandler init");
+//    }
 
     @Override
-    public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+    public void channelRead0(ChannelHandlerContext ctx, Object msg) throws Exception {
         ByteBuf buf = ((ByteBuf) msg);
         while (buf.readableBytes() > 0) {
             if (currentState == State.IDLE) {
@@ -57,8 +69,14 @@ public class ProtoHandler extends ChannelInboundHandlerAdapter {
                     case (byte) 10:
                         fileAlreadyExist(buf);
                         break;
-                    case (byte) 0:
+                    case (byte) 11:
                         receiveFileNotFound(buf);
+                        break;
+                    case (byte) 20:
+                        logger.info("filename received successfully");
+                        break;
+                    case (byte) 22:
+                        logger.error("filename receiving error");
                         break;
                     default:
                         logger.error("ERROR: Invalid first byte - {}", readBytes);
@@ -66,10 +84,11 @@ public class ProtoHandler extends ChannelInboundHandlerAdapter {
                 }
             }
         }
-        if (buf.readableBytes() == 0) {
+       /* if (buf.readableBytes() == 0) {
             buf.release();
-        }
+        }*/
     }
+
 
     private void receiveFileList(ByteBuf buf, CallMeBack cb) throws IOException {
 
@@ -92,13 +111,13 @@ public class ProtoHandler extends ChannelInboundHandlerAdapter {
         logger.info("Dirs received");
         System.out.println("handler:" + list);
 
-        cb.callMe(list);
+        Platform.runLater(() -> cb.callMe(list));
 //        UI.setPaths(paths);
 //        return list;
     }
 
     private void receiveFile(ByteBuf buf) throws IOException {
-        Path path = Paths.get(ByteBufReceiver.receiveFileName(buf, State.NAME_LENGTH));
+        Path path = Paths.get(ByteBufReceiver.receiveFileName(channel ,buf, State.NAME_LENGTH));
         long fileLength = ByteBufReceiver.receiveFileLength(buf, State.FILE_LENGTH);
         Files.createDirectories(userDIr);
         String fileName = userDIr.resolve(path.getFileName()).toString();
@@ -140,20 +159,19 @@ public class ProtoHandler extends ChannelInboundHandlerAdapter {
     }
 
     private void receiveFileNotFound(ByteBuf buf) {
-        String fileName = ByteBufReceiver.receiveFileName(buf, State.NAME_LENGTH);
+        String fileName = ByteBufReceiver.receiveFileName(channel, buf, State.NAME_LENGTH);
         logger.warn("file {} not found", fileName);
     }
 
     private void fileAlreadyExist(ByteBuf buf) {
-        String fileName = ByteBufReceiver.receiveFileName(buf, State.NAME_LENGTH);
+        String fileName = ByteBufReceiver.receiveFileName(channel, buf, State.NAME_LENGTH);
         logger.warn("file {} already exist", fileName);
     }
-
-
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
         cause.printStackTrace();
         ctx.close();
     }
+
 }

@@ -16,8 +16,9 @@ import java.util.HashSet;
 public class OperationTypeHandler extends ChannelInboundHandlerAdapter {
 
     private static final Logger logger = LogManager.getLogger(OperationTypeHandler.class);
-    private final Path userDir = Paths.get("user_dir_on_server");
     private String username;
+    private final String userRootDir = "user_dir_on_server";         //TODO take it from auth
+
     private State currentState = State.IDLE;
 
     private static void operationComplete(ChannelFuture future) {
@@ -69,7 +70,7 @@ public class OperationTypeHandler extends ChannelInboundHandlerAdapter {
     }
 
     private void sendRequestedFile(Channel channel, ByteBuf buf, ChannelFutureListener finishListener) throws IOException {
-        Path path = Paths.get(ByteBufReceiver.receiveFileName(buf, State.NAME_LENGTH));
+        Path path = Paths.get(ByteBufReceiver.receiveFileName(channel, buf, State.NAME_LENGTH));
         if (Files.exists(path)) {
             ByteBufSender.sendFileOpt(channel, (byte) 45);
             ByteBufSender.sendFileName(channel, path);
@@ -82,10 +83,10 @@ public class OperationTypeHandler extends ChannelInboundHandlerAdapter {
     }
 
     private void receiveFile(Channel channel, ByteBuf buf) throws IOException {
-        Path path = Paths.get(ByteBufReceiver.receiveFileName(buf, State.NAME_LENGTH));
+        Path path = Paths.get(ByteBufReceiver.receiveFileName(channel, buf, State.NAME_LENGTH));
         long fileLength = ByteBufReceiver.receiveFileLength(buf, State.FILE_LENGTH);
-        Files.createDirectories(userDir);
-        String fileName = userDir.resolve(path.getFileName()).toString();
+        Files.createDirectories(Paths.get(userRootDir));
+        String fileName = Paths.get(userRootDir).resolve(path.getFileName()).toString();
         if (Files.notExists(Paths.get(fileName))) {
             try (BufferedOutputStream out = new BufferedOutputStream(new FileOutputStream(fileName))) {
                 logger.info("Start receiving file {}", path.getFileName());
@@ -100,7 +101,7 @@ public class OperationTypeHandler extends ChannelInboundHandlerAdapter {
     }
 
     private void deleteFile(Channel channel, ByteBuf buf) throws IOException {
-        Path path = Paths.get(ByteBufReceiver.receiveFileName(buf, State.NAME_LENGTH));
+        Path path = Paths.get(ByteBufReceiver.receiveFileName(channel, buf, State.NAME_LENGTH));
         if (Files.exists(path)) {
             Files.deleteIfExists(path);
             logger.info("file {} deleted by user {}", path.getFileName(), username);
@@ -129,8 +130,8 @@ public class OperationTypeHandler extends ChannelInboundHandlerAdapter {
 */
 
     private void moveFile(Channel channel, ByteBuf buf) throws IOException {
-        Path oldPath = Paths.get(ByteBufReceiver.receiveFileName(buf, State.NAME_LENGTH));
-        Path newPath = Paths.get(ByteBufReceiver.receiveFileName(buf, State.NAME_LENGTH));
+        Path oldPath = Paths.get(ByteBufReceiver.receiveFileName(channel, buf, State.NAME_LENGTH));
+        Path newPath = Paths.get(ByteBufReceiver.receiveFileName(channel, buf, State.NAME_LENGTH));
         if (Files.exists(oldPath)) {
             Files.createDirectories(newPath.getParent());
             Files.move(oldPath, newPath, StandardCopyOption.REPLACE_EXISTING);
@@ -149,10 +150,16 @@ public class OperationTypeHandler extends ChannelInboundHandlerAdapter {
 
     private void sendDirs(Channel channel, ByteBuf buf, ChannelFutureListener finishListener) throws IOException {
 
+        String requestedDir = ByteBufReceiver.receiveFileName(channel, buf, State.NAME_LENGTH);
+/*        if (requestedDir != null)
+            ByteBufSender.sendFileOpt(channel, (byte) 20);
+        else
+            ByteBufSender.sendFileOpt(channel, (byte) 22);*/
+
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         DataOutputStream out = new DataOutputStream(baos);
 
-        for (String s : new FileBrowser("user_dir_on_server").getFileList()) {
+        for (String s : new FileBrowser(userRootDir).getFileList(requestedDir)) {
             out.writeUTF(s);
         }
 
@@ -168,7 +175,7 @@ public class OperationTypeHandler extends ChannelInboundHandlerAdapter {
     private void sendWalkTree(Channel channel, ByteBuf buf, ChannelFutureListener finishListener) throws IOException {
         ArrayList<Path> list = new ArrayList<>();
         try {
-            Files.walkFileTree(userDir, new HashSet<>(Collections.singletonList(FileVisitOption.FOLLOW_LINKS)),
+            Files.walkFileTree(Paths.get(userRootDir), new HashSet<>(Collections.singletonList(FileVisitOption.FOLLOW_LINKS)),
                     /*Integer.MAX_VALUE*/ 1, new SimpleFileVisitor<Path>() {
                         @Override
                         public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
@@ -209,7 +216,7 @@ public class OperationTypeHandler extends ChannelInboundHandlerAdapter {
 
     private void sendFileNotFound(Channel channel, Path path) {
         logger.warn("File {} not found", path.getFileName());
-        ByteBufSender.sendFileOpt(channel, (byte) 0);
+        ByteBufSender.sendFileOpt(channel, (byte) 11);
         ByteBufSender.sendFileName(channel, path);
     }
 
