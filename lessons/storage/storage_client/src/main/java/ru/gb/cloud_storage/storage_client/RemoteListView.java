@@ -1,15 +1,14 @@
 package ru.gb.cloud_storage.storage_client;
 
 import io.netty.channel.Channel;
-import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.concurrent.Task;
 import javafx.scene.control.ListView;
 import javafx.scene.control.SelectionMode;
 import javafx.scene.input.MouseButton;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import ru.gb.cloud_storage.storage_common.ByteBufSender;
 import ru.gb.cloud_storage.storage_common.CallMeBack;
 
 import java.awt.*;
@@ -19,13 +18,15 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.concurrent.CountDownLatch;
 
+import static ru.gb.cloud_storage.storage_common.ByteBufSender.getByteBufToSend;
+import static ru.gb.cloud_storage.storage_common.ByteBufSender.getFileNameBytes;
+
 public class RemoteListView extends ListView<String> {
 
-    private static final Logger logger = LogManager.getLogger(ProtoHandler.class);
+    private static final Logger logger = LogManager.getLogger(RemoteListView.class);
     private final Path userRootDir;
     private final ObservableList<String> childrenList = FXCollections.observableArrayList();
     private Path requestedDir;
-//    private final WatchService remoteWatchService;
 
 
     public RemoteListView(String path) {
@@ -34,14 +35,24 @@ public class RemoteListView extends ListView<String> {
         userRootDir = Paths.get(path);
         requestedDir = userRootDir;
 
-        Platform.runLater(() -> {
+        Task<Void> task = new Task<Void>() {
+            @Override
+            protected Void call() throws Exception {
+                requestFileTree(initChannel((childrenList::addAll)));
+                setItems(childrenList);
+
+                return null;
+            }
+        };
+        new Thread(task).start();
+        /*Platform.runLater(() -> {
             try {
                 requestFileList(initChannel((childrenList::addAll))); //receive FL from server
                 setItems(childrenList);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
-        });
+        });*/
 
         setOnKeyPressed(key -> {
             switch (key.getCode()) {
@@ -81,13 +92,25 @@ public class RemoteListView extends ListView<String> {
     @Override
     public void refresh() {
         childrenList.clear();
+        Task<Void> task = new Task<Void>() {
+            @Override
+            protected Void call() throws Exception {
+                requestFileTree(initChannel((childrenList::addAll)));
+                setItems(childrenList);
+
+                return null;
+            }
+        };
+        new Thread(task).start();
 //        for (int i = 0; i < 100; i++) {
-        try {
+       /* try {
+            if (Network.getInstance().getCurrentChannel().isOpen())
+                Network.getInstance().getCurrentChannel().close();
             requestFileList(initChannel(childrenList::addAll));
         } catch (InterruptedException e) {
             e.printStackTrace();
 //            }
-        }
+        }*/
     }
 //        remoteWatchService.changeObservableDirectory(requestedDir.toPath());
 
@@ -236,12 +259,18 @@ public class RemoteListView extends ListView<String> {
         CountDownLatch networkStarter = new CountDownLatch(1);
         new Thread(() -> Network.getInstance().start(networkStarter, cb)).start();
         networkStarter.await();
+
+//        Network.getInstance().getCurrentChannel().close();
         return Network.getInstance().getCurrentChannel();
     }
 
-    public void requestFileList(Channel channel) {
-            ByteBufSender.sendFileOpt(channel, (byte) 50);
-            ByteBufSender.sendFileName(channel, requestedDir);
+    public void requestFileTree(Channel channel) {
+//            ByteBufSender.sendFileOpt(channel, (byte) 50);
+        try {
+            channel.writeAndFlush(getByteBufToSend(new byte[]{50}, getFileNameBytes(requestedDir)));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
 }

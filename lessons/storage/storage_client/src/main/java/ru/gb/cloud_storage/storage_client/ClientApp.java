@@ -1,17 +1,12 @@
 package ru.gb.cloud_storage.storage_client;
 
 
-import io.netty.channel.Channel;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.scene.Scene;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
-import ru.gb.cloud_storage.storage_common.ByteBufSender;
-import ru.gb.cloud_storage.storage_common.CallMeBack;
-
-import java.util.concurrent.CountDownLatch;
 
 
 public class ClientApp extends Application {
@@ -20,6 +15,13 @@ public class ClientApp extends Application {
 
     public static void main(String[] args) {
         Application.launch(args);
+        /*CountDownLatch networkStarter = new CountDownLatch(1);
+        new Thread(() -> Network.getInstance().start(networkStarter, null)).start();
+        try {
+            networkStarter.await();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }*/
     }
 
     @Override
@@ -31,7 +33,7 @@ public class ClientApp extends Application {
         VBox.setVgrow(storageView, Priority.ALWAYS);
 
         Scene scene = new Scene(rootVBox, 840, 600);
-        primaryStage.setTitle("Ololo");
+        primaryStage.setTitle("CloudStorage");
 
         primaryStage.setScene(scene);
         primaryStage.show();
@@ -41,19 +43,4 @@ public class ClientApp extends Application {
             System.exit(0);
         });
     }
-
-
-//    public static Channel initChannel(CallMeBack cb) throws InterruptedException {
-//        CountDownLatch networkStarter = new CountDownLatch(1);
-//        new Thread(() -> Network.getInstance().start(networkStarter, cb)).start();
-//        networkStarter.await();
-//        return Network.getInstance().getCurrentChannel();
-//    }
-
-    public static void requestFileList(Channel channel) {
-        ByteBufSender.sendFileOpt(channel, (byte) 50);
-    }
-
-
-//    public static refresh
 }

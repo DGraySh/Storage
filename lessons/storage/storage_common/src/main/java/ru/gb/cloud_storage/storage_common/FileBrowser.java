@@ -56,8 +56,8 @@ public class FileBrowser {
             e.printStackTrace();
         }
 
-        System.out.println("userRootDir " +userRootDir);
-        System.out.println("requestedDir " +requestedDir);
+        System.out.println("userRootDir " + userRootDir);
+        System.out.println("requestedDir " + requestedDir);
 
         if (userRootDir.compareTo(requestedDir) == 0) {
             return getFileList();

@@ -159,8 +159,10 @@ public class StorageView extends HBox{
 //        return Network.getInstance().getCurrentChannel();
 //    }
 
+/*
     public static void requestFileList(Channel channel) {
         ByteBufSender.sendFileOpt(channel, (byte) 50);
     }
+*/
 
 }

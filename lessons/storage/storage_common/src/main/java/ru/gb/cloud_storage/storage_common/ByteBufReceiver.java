@@ -1,10 +1,7 @@
 package ru.gb.cloud_storage.storage_common;
 
 import io.netty.buffer.ByteBuf;
-import io.netty.buffer.ByteBufAllocator;
-import io.netty.buffer.ByteBufUtil;
-import io.netty.channel.Channel;
-import io.netty.handler.codec.ByteToMessageDecoder;
+import io.netty.channel.ChannelHandlerContext;
 import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
@@ -18,31 +15,32 @@ public class ByteBufReceiver {
         throw new IllegalStateException("Utility class");
     }
 
-    public static String receiveFileName(Channel channel, ByteBuf buf, State currentState) {
+/*
+    public static String receiveFileName(ChannelHandlerContext ctx, ByteBuf buf, State currentState) {
 
         byte[] fileName = null;
         int nameLength = 0;
         if ((currentState == State.NAME_LENGTH) && (buf.readableBytes() >= 4)) {
             nameLength = buf.readInt();
-            System.out.println("length " + nameLength);
+            System.out.println("length received = " + nameLength);
             currentState = State.NAME;
-            if (nameLength != 0)
-                ByteBufSender.sendFileOpt(channel, (byte) 20);
-            else
-                ByteBufSender.sendFileOpt(channel, (byte) 22);
         }
-
-        if ((currentState == State.NAME) && (buf.readableBytes() >= nameLength)) {
+        if (buf.readableBytes() >= nameLength) {
             fileName = new byte[nameLength];
             buf.readBytes(fileName);
-            System.out.println("filename " + Arrays.toString(fileName));
+            System.out.println("filename received = " + Arrays.toString(fileName));
         }
         if (fileName != null) {
             return new String(fileName, StandardCharsets.UTF_8);
         } else {
-            throw new NullPointerException("File name is missing");
+            buf.resetReaderIndex();
+            System.out.println(buf.readableBytes());
+            ctx.close();
+            return null;
+//            throw new Exception("File name is missing");
         }
     }
+*/
 
     public static long receiveFileLength(ByteBuf buf, State currentState) {
         long length = 0L;
@@ -69,5 +67,15 @@ public class ByteBufReceiver {
             logger.warn("Empty file received");
             out.close();
         }
+    }
+
+    public static String getFileName(byte[] arr) {
+
+        int nameLength = arr[1];
+        if (nameLength == arr.length - 2) {
+            byte[] fileName = Arrays.copyOfRange(arr, 2, arr.length);
+            return new String(fileName, StandardCharsets.UTF_8);
+        } else
+            throw new IndexOutOfBoundsException("File name is corrupted");
     }
 }

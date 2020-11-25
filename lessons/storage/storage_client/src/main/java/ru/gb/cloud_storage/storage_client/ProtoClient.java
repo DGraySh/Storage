@@ -1,3 +1,4 @@
+/*
 package ru.gb.cloud_storage.storage_client;
 
 import io.netty.channel.Channel;
@@ -58,21 +59,15 @@ public class ProtoClient {
     private static void sendFile(String fileName, Channel channel, ChannelFutureListener finishListener) throws IOException {
         Path path = Paths.get(fileName);
         if (Files.exists(path)) {
-            ByteBufSender.sendFileOpt(channel, (byte) 20);
-            ByteBufSender.sendFileName(channel, path);
             ByteBufSender.sendFile(channel, path, finishListener);
         } else
             logger.error("File {} doesn't exist", path.getFileName());
     }
 
     private static void requestFile(Channel channel, Path path) {
-        ByteBufSender.sendFileOpt(channel, (byte) 40);
-        ByteBufSender.sendFileName(channel, path);
     }
 
     private static void deleteFile(Channel channel, Path path) {
-        ByteBufSender.sendFileOpt(channel, (byte) 31);
-        ByteBufSender.sendFileName(channel, path);
     }
 
     private static void moveFile(Channel channel, Path oldPath, Path newPath) {
@@ -98,4 +93,4 @@ public class ProtoClient {
             logger.info("File successfully sent");
         }
     }
-}
+}*/
