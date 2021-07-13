@@ -45,12 +45,6 @@ public class OperationTypeHandler extends ChannelInboundHandlerAdapter {
         }
     }
 
-/*
-    private void sendFile(ChannelHandlerContext ctx, ByteBuf buf) throws IOException {
-        sendRequestedFile(buf, ctx.channel(), OperationTypeHandler::operationComplete);
-    }
-*/
-
     private void fileOperations(Channel channel, ByteBuf buf, byte read) throws IOException {
         if (read == (byte) 31) deleteFile(channel, buf);
         if ((read == (byte) 33) || (read == (byte) 32)) moveFile(channel, buf);
@@ -86,7 +80,6 @@ public class OperationTypeHandler extends ChannelInboundHandlerAdapter {
         } else
             sendFileAlreadyExist(channel, path);
         currentState = State.ERROR;
-        //TODO request for overwrite file in GUI
     }
 
     private void deleteFile(Channel channel, ByteBuf buf) throws IOException {
@@ -101,22 +94,6 @@ public class OperationTypeHandler extends ChannelInboundHandlerAdapter {
         }
         currentState = State.IDLE;
     }
-
-/*
-    private void renameFile(Channel channel, ByteBuf buf) throws IOException {
-        String fileName = ByteBufReceiver.receiveFileName(buf, State.NAME_LENGTH);
-        Path path = Paths.get(fileName);
-        String newFileName = ByteBufReceiver.receiveFileName(buf, State.NAME_LENGTH);
-        if (Files.exists(path)) {
-            Files.move(path, path.resolveSibling(newFileName), StandardCopyOption.REPLACE_EXISTING);
-            ByteBufSender.sendFileOpt(channel, buf, (byte) 32);
-            System.out.println("file " + fileName + " renamed to " + newFileName + " by user _...");
-        } else {
-            sendFileNotFound(channel, buf, path);
-        }
-        currentState = State.IDLE;
-    }
-*/
 
     private void moveFile(Channel channel, ByteBuf buf) throws IOException {
         Path oldPath = Path.of(ByteBufReceiver.receiveFileName(buf, State.NAME_LENGTH));
@@ -162,7 +139,6 @@ public class OperationTypeHandler extends ChannelInboundHandlerAdapter {
             e.printStackTrace();
             logger.error("Exception in WalkTree");
         }
-        //convert file tree to byte[] and send
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         DataOutputStream out = new DataOutputStream(baos);
 
@@ -190,7 +166,6 @@ public class OperationTypeHandler extends ChannelInboundHandlerAdapter {
         ByteBufSender.sendFileOpt(channel, (byte) 10);
         ByteBufSender.sendFileName(channel, path);
     }
-
 
     private void sendFile(String fileName, Channel channel, ChannelFutureListener finishListener) throws IOException {
         Path path = Paths.get(fileName);
