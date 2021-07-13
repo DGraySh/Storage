@@ -21,7 +21,6 @@ public class ProtoHandler extends ChannelInboundHandlerAdapter {
     private final Path userDIr = Path.of("./user_directory");
     private State currentState = State.IDLE;
 
-
     public ProtoHandler() {
     }
 
@@ -79,7 +78,6 @@ public class ProtoHandler extends ChannelInboundHandlerAdapter {
         } else
             logger.warn("File {} already exist, overwrite it?", path.getFileName());
         currentState = State.ERROR;
-        //TODO request for overwrite file in GUI
     }
 
     private List<Path> receiveFileTree(ByteBuf buf) throws IOException {
