@@ -49,7 +49,6 @@ public class ByteBufReceiver {
                     logger.info("File successfully received");
                     out.close();
                     break;
-                    /*Написать здесь отправку обратно md5-суммы файла для проверки на повреждения *///TODO
                 }
             }
         } else {
