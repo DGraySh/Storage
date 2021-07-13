@@ -17,24 +17,7 @@ public class ProtoClient {
     private static final Logger logger = LogManager.getLogger(ProtoClient.class);
 
     public static void main(String[] args) throws Exception {
-
         Channel channel = initChannel();
-
-        sendFile("./1/2/2.txt", channel, ProtoClient::operationComplete);
-//        requestFile(channel, Path.of("./1/3.txt"));
-//        Thread.sleep(2000);
-//        deleteFile(channel, Path.of("./1/1.txt"));
-//        Thread.sleep(2000);
-//        moveFile(channel, Path.of("./1/3.txt"), Path.of("./1/5/31.txt"));
-//        Thread.sleep(4000);
-//        renameFile(channel, Path.of("./1/7.txt"), Path.of("./1/71.txt"));
-//        Thread.sleep(2000);
-//        requestFileTree(channel);
-//        Thread.sleep(2000);
-
-        Network.getInstance().stop();
-
-
     }
 
     private static Channel initChannel() throws InterruptedException {
